@@ -1,0 +1,10 @@
+streamlit
+requests
+requests-oauthlib
+streamlit-lottie
+tensorflow
+numpy
+pillow
+gdown
+google-generativeai
+streamlit-option-menu
