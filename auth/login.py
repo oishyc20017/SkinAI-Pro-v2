@@ -30,6 +30,7 @@ def google_login():
     authorization_url, state = oauth.authorization_url(
         GOOGLE_AUTHORIZATION_ENDPOINT
     )
+    st.write(authorization_url)
 
     st.session_state.google_oauth_state = state
 
