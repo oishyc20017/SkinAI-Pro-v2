@@ -1,0 +1,423 @@
+/* =========================================================
+   SKINAI PRO — PROFESSIONAL DARK UI
+   ========================================================= */
+
+:root {
+    --bg: #0b1220;
+    --sidebar: #0f172a;
+    --surface: #111827;
+    --surface-hover: #182235;
+    --border: #243044;
+    --text: #f8fafc;
+    --muted: #94a3b8;
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+}
+
+
+/* =========================================================
+   APP
+   ========================================================= */
+
+.stApp {
+    background: var(--bg);
+    color: var(--text);
+}
+
+
+/* Hide Streamlit branding */
+
+#MainMenu {
+    visibility: hidden;
+}
+
+footer {
+    visibility: hidden;
+}
+
+
+/* =========================================================
+   MAIN CONTENT
+   ========================================================= */
+
+.block-container {
+    max-width: 1100px;
+    padding-top: 1.5rem;
+    padding-bottom: 6rem;
+}
+
+
+/* =========================================================
+   SIDEBAR
+   ========================================================= */
+
+section[data-testid="stSidebar"] {
+    background: var(--sidebar);
+    border-right: 1px solid var(--border);
+}
+
+
+/* Sidebar width */
+
+section[data-testid="stSidebar"] > div {
+    padding-top: 1.2rem;
+}
+
+
+/* Sidebar buttons */
+
+section[data-testid="stSidebar"] button {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    color: #cbd5e1;
+    min-height: 42px;
+    text-align: left;
+    transition: all 0.2s ease;
+}
+
+
+/* Sidebar hover */
+
+section[data-testid="stSidebar"] button:hover {
+    background: var(--surface-hover);
+    border-color: var(--border);
+    color: white;
+    transform: none;
+}
+
+
+/* New Chat button */
+
+section[data-testid="stSidebar"] button[kind="secondary"] {
+    font-weight: 600;
+}
+
+
+/* Sidebar divider */
+
+section[data-testid="stSidebar"] hr {
+    border-color: var(--border);
+}
+
+
+/* =========================================================
+   CHAT WELCOME
+   ========================================================= */
+
+.chat-welcome {
+    text-align: center;
+    margin: 10vh auto 0 auto;
+    max-width: 620px;
+    padding: 0 20px;
+}
+
+.chat-welcome-icon {
+    width: 58px;
+    height: 58px;
+    margin: 0 auto 18px auto;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 18px;
+
+    background: #172554;
+    border: 1px solid #1e40af;
+
+    font-size: 27px;
+}
+
+.chat-welcome h1 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+    margin: 0 0 8px 0;
+}
+
+.chat-welcome p {
+    color: #94A3B8;
+    font-size: 14px;
+    line-height: 1.6;
+    margin: 0;
+}
+
+/* =========================================================
+   CHAT HEADER
+   ========================================================= */
+
+.chat-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    padding: 10px 0 18px 0;
+
+    border-bottom: 1px solid var(--border);
+
+    margin-bottom: 25px;
+}
+
+
+.chat-header-icon {
+    width: 40px;
+    height: 40px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 12px;
+
+    background: #172554;
+    border: 1px solid #1e40af;
+
+    font-size: 19px;
+}
+
+
+.chat-header-title {
+    font-size: 16px;
+    font-weight: 650;
+    color: var(--text);
+}
+
+
+.chat-header-subtitle {
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+
+/* =========================================================
+   CHAT MESSAGES
+   ========================================================= */
+
+[data-testid="stChatMessage"] {
+    max-width: 850px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-top: 12px;
+    padding-bottom: 12px;
+}
+
+
+/* Message text */
+
+[data-testid="stChatMessage"] p {
+    line-height: 1.65;
+    font-size: 15px;
+}
+
+
+/* =========================================================
+   CHAT INPUT
+   ========================================================= */
+
+[data-testid="stChatInput"] {
+    max-width: 820px;
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 12px;
+}
+
+[data-testid="stChatInput"] > div {
+    background: #111827;
+    border: 1px solid #2b374b;
+    border-radius: 18px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+[data-testid="stChatInput"] textarea {
+    background: transparent;
+    border: none;
+    border-radius: 18px;
+    color: #F8FAFC;
+    padding: 14px 16px;
+    font-size: 15px;
+    min-height: 52px;
+}
+
+[data-testid="stChatInput"] textarea:focus {
+    border: none;
+    box-shadow: none;
+}
+
+[data-testid="stChatInput"]:focus-within > div {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.12);
+}
+
+[data-testid="stChatInput"] textarea::placeholder {
+    color: #64748B;
+}
+
+
+/* =========================================================
+   NORMAL INPUTS
+   ========================================================= */
+
+.stTextInput input,
+.stTextArea textarea,
+.stSelectbox div[data-baseweb="select"] {
+    background: var(--surface);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+}
+
+
+/* =========================================================
+   BUTTONS
+   ========================================================= */
+
+.stButton > button {
+    border-radius: 10px;
+    min-height: 44px;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    transition: all 0.2s ease;
+}
+
+
+.stButton > button:hover {
+    border-color: #3b82f6;
+    transform: translateY(-1px);
+}
+
+
+/* =========================================================
+   METRIC / CARD
+   ========================================================= */
+
+div[data-testid="stMetric"] {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 18px;
+}
+
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 768px) {
+
+    .block-container {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    .chat-welcome {
+        margin-top: 12vh;
+    }
+
+    .chat-welcome h1 {
+        font-size: 26px;
+    }
+
+    [data-testid="stChatMessage"] {
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+}
+/* =========================================================
+   HIDE STREAMLIT DEFAULT PAGE NAVIGATION
+   ========================================================= */
+
+[data-testid="stSidebarNav"] {
+    display: none !important;
+}
+
+[data-testid="stSidebarNavItems"] {
+    display: none !important;
+}
+/* =========================================================
+   PROFESSIONAL CHAT MESSAGES
+   ========================================================= */
+
+[data-testid="stChatMessage"] {
+    max-width: 820px;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 14px 4px;
+}
+
+
+/* Message content */
+
+[data-testid="stChatMessageContent"] {
+    border-radius: 16px;
+    padding: 12px 16px;
+}
+
+
+/* User message */
+
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"])
+[data-testid="stChatMessageContent"] {
+    background: #1d4ed8;
+    color: #ffffff;
+}
+
+
+/* Assistant message */
+
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"])
+[data-testid="stChatMessageContent"] {
+    background: #111827;
+    border: 1px solid #243044;
+    color: #e2e8f0;
+}
+
+
+/* Message text */
+
+[data-testid="stChatMessageContent"] p {
+    font-size: 15px;
+    line-height: 1.65;
+    margin-bottom: 6px;
+}
+
+
+/* Lists */
+
+[data-testid="stChatMessageContent"] ul,
+[data-testid="stChatMessageContent"] ol {
+    padding-left: 22px;
+}
+
+
+/* Code blocks */
+
+[data-testid="stChatMessageContent"] pre {
+    border-radius: 10px;
+}
+/* =========================================================
+   SIDEBAR CHAT POLISH
+   ========================================================= */
+
+section[data-testid="stSidebar"] .stButton > button {
+    text-align: left;
+    padding-left: 12px;
+    padding-right: 10px;
+    font-size: 14px;
+}
+
+
+/* Recent chat buttons */
+
+section[data-testid="stSidebar"] .stButton > button:hover {
+    background: #182235;
+    border-color: #2b374b;
+}
+
+
+/* New Chat */
+
+section[data-testid="stSidebar"] .stButton > button[kind="secondary"] {
+    transition: all 0.2s ease;
+}
