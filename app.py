@@ -1,6 +1,7 @@
 import streamlit as st
 from pathlib import Path
-
+import os
+from database.db import DB_PATH
 st.set_page_config(
     page_title="SkinAI Pro",
     page_icon="🩺",
@@ -53,6 +54,16 @@ if "analysis_completed" not in st.session_state:
 st.title("🩺 SkinAI Pro")
 
 sidebar()
+if os.path.exists(DB_PATH):
+
+    with open(DB_PATH, "rb") as f:
+
+        st.download_button(
+            "⬇️ Download Cloud Database",
+            data=f,
+            file_name="cloud_skinai.db",
+            mime="application/x-sqlite3"
+        )
 
 if st.session_state.logged_in:
 
