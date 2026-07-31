@@ -89,6 +89,31 @@ def sidebar():
             "History",
             "history"
         )
+                # ==============================
+        # ADMIN DASHBOARD
+        # ==============================
+
+        admin_email = st.secrets.get(
+            "ADMIN_EMAIL",
+            ""
+        ).strip().lower()
+
+        current_email = st.session_state.get(
+            "email",
+            ""
+        ).strip().lower()
+
+        if (
+            st.session_state.get("logged_in", False)
+            and admin_email
+            and current_email == admin_email
+        ):
+
+            menu_button(
+                "🛠️",
+                "Admin Dashboard",
+                "admin"
+            )
 
         # ==============================
         # RECENT CHATS

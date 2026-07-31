@@ -1,7 +1,5 @@
 import streamlit as st
 from pathlib import Path
-import os
-from database.db import DB_PATH
 st.set_page_config(
     page_title="SkinAI Pro",
     page_icon="🩺",
@@ -23,6 +21,7 @@ from pages.chat import chat_page
 from pages.prediction import prediction_page
 from pages.booking import booking_page
 from pages.history import history_page
+from pages.admin import admin_page
 
 create_tables()
 css_file = Path("assets/css/style.css")
@@ -54,16 +53,6 @@ if "analysis_completed" not in st.session_state:
 st.title("🩺 SkinAI Pro")
 
 sidebar()
-if os.path.exists(DB_PATH):
-
-    with open(DB_PATH, "rb") as f:
-
-        st.download_button(
-            "⬇️ Download Cloud Database",
-            data=f,
-            file_name="cloud_skinai.db",
-            mime="application/x-sqlite3"
-        )
 
 if st.session_state.logged_in:
 
@@ -81,7 +70,8 @@ if st.session_state.logged_in:
 
     elif st.session_state.page == "history":
         history_page()
-
+    elif st.session_state.page == "admin":
+        admin_page()
     # show success message if analysis finished elsewhere
     if st.session_state.get("analysis_completed"):
         analysis_completed()
