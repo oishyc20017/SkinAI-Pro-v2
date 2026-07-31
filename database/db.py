@@ -1,10 +1,18 @@
 import sqlite3
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
+import streamlit as st
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-DB_PATH = BASE_DIR / "skinai.db"
+
+# Local and Streamlit Cloud use separate databases
+environment = st.secrets.get("ENVIRONMENT", "local")
+
+if environment == "cloud":
+    DB_PATH = BASE_DIR / "cloud_skinai.db"
+else:
+    DB_PATH = BASE_DIR / "skinai.db"
 
 
 BD_TIMEZONE = timezone(timedelta(hours=6))
