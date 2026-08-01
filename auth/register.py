@@ -41,7 +41,7 @@ def register_page():
             c.execute(
                 """
                 INSERT INTO users(fullname,email,password)
-                VALUES(?,?,?)
+                VALUES(%s,%s,%s)
                 """,
                 (
                     fullname,

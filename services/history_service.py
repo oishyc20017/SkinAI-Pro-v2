@@ -14,7 +14,7 @@ def get_prediction_history(user_id):
             confidence,
             created_at
         FROM prediction_history
-        WHERE user_id=?
+        WHERE user_id=%s
         ORDER BY id DESC
         """,
         (user_id,)
@@ -35,7 +35,7 @@ def delete_prediction(prediction_id):
     c.execute(
         """
         DELETE FROM prediction_history
-        WHERE id=?
+        WHERE id=%s
         """,
         (prediction_id,)
     )

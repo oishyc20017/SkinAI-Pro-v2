@@ -2,34 +2,48 @@ from database.db import get_connection
 from utils.time_utils import get_bd_time, format_bd_time
 
 
+# =========================================================
+# CREATE CONVERSATION
+# =========================================================
+
 def create_conversation(user_id, title="New Chat"):
 
     conn = get_connection()
     c = conn.cursor()
 
-    c.execute(
-        """
-        INSERT INTO conversations(
-            user_id,
-            title,
-            created_at
+    try:
+
+        c.execute(
+            """
+            INSERT INTO conversations(
+                user_id,
+                title,
+                created_at
+            )
+            VALUES(%s, %s, %s)
+            RETURNING id
+            """,
+            (
+                user_id,
+                title,
+                get_bd_time()
+            )
         )
-        VALUES(?,?,?)
-        """,
-        (
-            user_id,
-            title,
-            get_bd_time()
-        )
-    )
 
-    conversation_id = c.lastrowid
+        conversation_id = c.fetchone()[0]
 
-    conn.commit()
-    conn.close()
+        conn.commit()
 
-    return conversation_id
+        return conversation_id
 
+    finally:
+
+        conn.close()
+
+
+# =========================================================
+# SAVE MESSAGE
+# =========================================================
 
 def save_message(
     conversation_id,
@@ -41,51 +55,64 @@ def save_message(
     conn = get_connection()
     c = conn.cursor()
 
-    c.execute(
-        """
-        INSERT INTO messages(
-            conversation_id,
-            user_id,
-            role,
-            message,
-            created_at
-        )
-        VALUES(?,?,?,?,?)
-        """,
-        (
-            conversation_id,
-            user_id,
-            role,
-            message,
-            get_bd_time()
-        )
-    )
+    try:
 
-    conn.commit()
-    conn.close()
+        c.execute(
+            """
+            INSERT INTO messages(
+                conversation_id,
+                user_id,
+                role,
+                message,
+                created_at
+            )
+            VALUES(%s, %s, %s, %s, %s)
+            """,
+            (
+                conversation_id,
+                user_id,
+                role,
+                message,
+                get_bd_time()
+            )
+        )
 
+        conn.commit()
+
+    finally:
+
+        conn.close()
+
+
+# =========================================================
+# LOAD MESSAGES
+# =========================================================
 
 def load_messages(conversation_id):
 
     conn = get_connection()
     c = conn.cursor()
 
-    c.execute(
-        """
-        SELECT
-            role,
-            message,
-            created_at
-        FROM messages
-        WHERE conversation_id=?
-        ORDER BY id
-        """,
-        (conversation_id,)
-    )
+    try:
 
-    rows = c.fetchall()
+        c.execute(
+            """
+            SELECT
+                role,
+                message,
+                created_at
+            FROM messages
+            WHERE conversation_id=%s
+            ORDER BY id
+            """,
+            (conversation_id,)
+        )
 
-    conn.close()
+        rows = c.fetchall()
+
+    finally:
+
+        conn.close()
 
     formatted_rows = []
 
@@ -102,29 +129,41 @@ def load_messages(conversation_id):
     return formatted_rows
 
 
+# =========================================================
+# LOAD CONVERSATIONS
+# =========================================================
+
 def load_conversations(user_id):
 
     conn = get_connection()
     c = conn.cursor()
 
-    c.execute(
-        """
-        SELECT
-            id,
-            title
-        FROM conversations
-        WHERE user_id=?
-        ORDER BY id DESC
-        """,
-        (user_id,)
-    )
+    try:
 
-    rows = c.fetchall()
+        c.execute(
+            """
+            SELECT
+                id,
+                title
+            FROM conversations
+            WHERE user_id=%s
+            ORDER BY id DESC
+            """,
+            (user_id,)
+        )
 
-    conn.close()
+        rows = c.fetchall()
+
+    finally:
+
+        conn.close()
 
     return rows
 
+
+# =========================================================
+# UPDATE CONVERSATION TITLE
+# =========================================================
 
 def update_conversation_title(
     conversation_id,
@@ -134,17 +173,22 @@ def update_conversation_title(
     conn = get_connection()
     c = conn.cursor()
 
-    c.execute(
-        """
-        UPDATE conversations
-        SET title=?
-        WHERE id=?
-        """,
-        (
-            title,
-            conversation_id
-        )
-    )
+    try:
 
-    conn.commit()
-    conn.close()
+        c.execute(
+            """
+            UPDATE conversations
+            SET title=%s
+            WHERE id=%s
+            """,
+            (
+                title,
+                conversation_id
+            )
+        )
+
+        conn.commit()
+
+    finally:
+
+        conn.close()

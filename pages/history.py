@@ -36,7 +36,7 @@ def get_booking_history(user_id):
             payment_method,
             created_at
         FROM bookings
-        WHERE user_id=?
+        WHERE user_id=%s
         ORDER BY id DESC
         """,
         (user_id,)

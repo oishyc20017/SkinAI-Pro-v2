@@ -19,7 +19,7 @@ def save_prediction(user_id, disease, confidence):
             confidence,
             created_at
         )
-        VALUES (?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s)
         """,
         (
             user_id,
@@ -48,7 +48,7 @@ def get_recent_prediction(user_id):
             disease,
             confidence
         FROM prediction_history
-        WHERE user_id=?
+        WHERE user_id=%s
         ORDER BY id DESC
         LIMIT 1
         """,
@@ -76,7 +76,7 @@ def get_recent_chat(user_id):
         SELECT
             message
         FROM messages
-        WHERE user_id=?
+        WHERE user_id=%s
         ORDER BY id DESC
         LIMIT 1
         """,
@@ -106,7 +106,7 @@ def get_recent_booking(user_id):
             booking_date,
             booking_time
         FROM bookings
-        WHERE user_id=?
+        WHERE user_id=%s
         ORDER BY id DESC
         LIMIT 1
         """,

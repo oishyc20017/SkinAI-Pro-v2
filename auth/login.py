@@ -127,7 +127,7 @@ def google_callback():
             """
             SELECT id, fullname, email
             FROM users
-            WHERE email=?
+            WHERE email=%s
             """,
             (email,)
         )
@@ -143,7 +143,7 @@ def google_callback():
                     email,
                     password
                 )
-                VALUES(?,?,?)
+                VALUES(%s, %s, %s)
                 """,
                 (
                     fullname,
@@ -158,7 +158,7 @@ def google_callback():
                 """
                 SELECT id, fullname, email
                 FROM users
-                WHERE email=?
+                WHERE email=%s
                 """,
                 (email,)
             )
@@ -241,7 +241,7 @@ def login_page():
             """
             SELECT id, fullname, email, password
             FROM users
-            WHERE email=?
+            WHERE email=%s
             """,
             (email,)
         )

@@ -244,7 +244,7 @@ def booking_page():
                 payment_method,
                 created_at
             )
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
+            VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             """,
             (
                 st.session_state.user_id,

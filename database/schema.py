@@ -4,131 +4,108 @@ from database.db import get_connection
 def create_tables():
 
     conn = get_connection()
-    c = conn.cursor()
 
-    # =========================
-    # Users
-    # =========================
+    try:
 
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS users(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        fullname TEXT NOT NULL,
-        email TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL,
-        created_at TEXT
-    )
-    """)
+        with conn.cursor() as c:
 
-    # =========================
-    # Prediction History
-    # =========================
+            # =========================
+            # Users
+            # =========================
 
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS prediction_history(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL,
-        disease TEXT NOT NULL,
-        confidence REAL NOT NULL,
-        image_path TEXT,
-        created_at TEXT,
-        FOREIGN KEY(user_id) REFERENCES users(id)
-    )
-    """)
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS users(
+                    id SERIAL PRIMARY KEY,
+                    fullname TEXT NOT NULL,
+                    email TEXT UNIQUE NOT NULL,
+                    password TEXT NOT NULL,
+                    created_at TEXT
+                )
+            """)
 
-    # =========================
-    # Conversations
-    # =========================
+            # =========================
+            # Prediction History
+            # =========================
 
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS conversations(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL,
-        title TEXT,
-        created_at TEXT,
-        FOREIGN KEY(user_id) REFERENCES users(id)
-    )
-    """)
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS prediction_history(
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL,
+                    disease TEXT NOT NULL,
+                    confidence DOUBLE PRECISION NOT NULL,
+                    image_path TEXT,
+                    created_at TEXT,
+                    FOREIGN KEY(user_id) REFERENCES users(id)
+                )
+            """)
 
-    # =========================
-    # Messages
-    # =========================
+            # =========================
+            # Conversations
+            # =========================
 
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS messages(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        conversation_id INTEGER NOT NULL,
-        user_id INTEGER NOT NULL,
-        role TEXT NOT NULL,
-        message TEXT NOT NULL,
-        created_at TEXT,
-        FOREIGN KEY(conversation_id) REFERENCES conversations(id),
-        FOREIGN KEY(user_id) REFERENCES users(id)
-    )
-    """)
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS conversations(
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL,
+                    title TEXT,
+                    created_at TEXT,
+                    FOREIGN KEY(user_id) REFERENCES users(id)
+                )
+            """)
 
-    # =========================
-    # Doctor Bookings
-    # =========================
+            # =========================
+            # Messages
+            # =========================
 
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS bookings(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL,
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS messages(
+                    id SERIAL PRIMARY KEY,
+                    conversation_id INTEGER NOT NULL,
+                    user_id INTEGER NOT NULL,
+                    role TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    created_at TEXT,
+                    FOREIGN KEY(conversation_id) REFERENCES conversations(id),
+                    FOREIGN KEY(user_id) REFERENCES users(id)
+                )
+            """)
 
-        doctor_name TEXT NOT NULL,
-        specialty TEXT,
-        hospital_name TEXT,
+            # =========================
+            # Doctor Bookings
+            # =========================
 
-        patient_name TEXT,
-        patient_email TEXT,
-        phone TEXT,
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS bookings(
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL,
 
-        booking_date TEXT NOT NULL,
-        booking_time TEXT NOT NULL,
+                    doctor_name TEXT NOT NULL,
+                    specialty TEXT,
+                    hospital_name TEXT,
 
-        symptoms TEXT,
-        payment_method TEXT,
+                    patient_name TEXT,
+                    patient_email TEXT,
+                    phone TEXT,
 
-        status TEXT DEFAULT 'Pending',
+                    booking_date TEXT NOT NULL,
+                    booking_time TEXT NOT NULL,
 
-        created_at TEXT,
+                    symptoms TEXT,
+                    payment_method TEXT,
 
-        FOREIGN KEY(user_id) REFERENCES users(id)
-    )
-    """)
+                    status TEXT DEFAULT 'Pending',
 
-    # =========================
-    # Existing booking columns
-    # =========================
+                    created_at TEXT,
 
-    c.execute("PRAGMA table_info(bookings)")
+                    FOREIGN KEY(user_id) REFERENCES users(id)
+                )
+            """)
 
-    existing_columns = [
-        row[1]
-        for row in c.fetchall()
-    ]
+        conn.commit()
 
-    new_columns = {
-        "patient_name": "TEXT",
-        "patient_email": "TEXT",
-        "phone": "TEXT",
-        "specialty": "TEXT",
-        "hospital_name": "TEXT",
-        "symptoms": "TEXT",
-        "payment_method": "TEXT"
-    }
+    except Exception:
+        conn.rollback()
+        raise
 
-    for column_name, column_type in new_columns.items():
-
-        if column_name not in existing_columns:
-
-            c.execute(
-                f"""
-                ALTER TABLE bookings
-                ADD COLUMN {column_name} {column_type}
-                """
-            )
-
-    conn.commit()
-    conn.close()
+    finally:
+        conn.close()
