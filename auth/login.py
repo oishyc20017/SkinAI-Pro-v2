@@ -533,21 +533,23 @@ def google_callback():
 
         if user is None:
 
+            user_placeholder = "?" if backend == "sqlite" else "%s"
+
             c.execute(
-                """
+                f"""
                 INSERT INTO users(
-                    fullname,
-                    email,
-                    password
-                )
-                VALUES(%s, %s, %s)
-                """,
-                (
-                    fullname,
-                    email,
-                    "GOOGLE_OAUTH_USER"
-                )
+                fullname,
+                email,
+                password
             )
+            VALUES({user_placeholder}, {user_placeholder}, {user_placeholder})
+            """,
+            (
+                fullname,
+                email,
+                "GOOGLE_OAUTH_USER"
+            )
+        )
 
             conn.commit()
 
