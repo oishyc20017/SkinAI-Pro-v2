@@ -4,6 +4,7 @@ from requests_oauthlib import OAuth2Session
 from database.db import get_connection
 from utils.password import verify_password
 from components.theme import page_title
+from database.db import get_connection, get_database_backend
 
 
 # =========================================================
@@ -515,11 +516,15 @@ def google_callback():
         conn = get_connection()
         c = conn.cursor()
 
+        backend = get_database_backend()
+
+        email_placeholder = "?" if backend == "sqlite" else "%s"
+
         c.execute(
-            """
+            f"""
             SELECT id, fullname, email
             FROM users
-            WHERE email=%s
+            WHERE email={email_placeholder}
             """,
             (email,)
         )
@@ -547,10 +552,10 @@ def google_callback():
             conn.commit()
 
             c.execute(
-                """
+                f"""
                 SELECT id, fullname, email
                 FROM users
-                WHERE email=%s
+                WHERE email={email_placeholder}
                 """,
                 (email,)
             )

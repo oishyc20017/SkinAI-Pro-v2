@@ -79,13 +79,191 @@ DISEASE_INFO = {
 
 
 def prediction_page():
+    st.markdown(
+        """
+        <style>
 
-    st.markdown("# 🔬 Skin Analysis")
+        .prediction-hero {
+            text-align: center;
+            padding: 20px 10px 28px 10px;
+        }
 
-    st.caption(
-        "Upload a skin image for an AI-assisted skin lesion screening."
+        .prediction-icon {
+            width: 70px;
+            height: 70px;
+            margin: auto;
+            border-radius: 50%;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            font-size: 32px;
+
+            background: rgba(56, 189, 248, 0.10);
+            border: 1px solid rgba(56, 189, 248, 0.35);
+
+            box-shadow:
+                0 0 20px rgba(56, 189, 248, 0.20);
+
+            animation: predictionPulse 2.5s ease-in-out infinite;
+        }
+
+        .prediction-title {
+            margin-top: 14px;
+            font-size: 32px;
+            font-weight: 700;
+        }
+
+        .prediction-subtitle {
+            margin-top: 6px;
+            color: #94A3B8;
+            font-size: 15px;
+        }
+
+        .prediction-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+
+            margin-top: 14px;
+            padding: 6px 12px;
+
+            border-radius: 20px;
+
+            font-size: 12px;
+            color: #94A3B8;
+
+            background: rgba(15, 23, 42, 0.45);
+            border: 1px solid rgba(148, 163, 184, 0.15);
+        }
+
+        .prediction-status span {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #22c55e;
+
+            box-shadow:
+                0 0 8px rgba(34, 197, 94, 0.8);
+
+            animation: statusBlink 1.8s infinite;
+        }
+
+        @keyframes predictionPulse {
+
+            0%, 100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.07);
+            }
+
+        }
+
+        @keyframes statusBlink {
+
+            0%, 100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.35;
+            }
+
+        }
+        /* =========================================
+        ANALYSIS RESULT CARD
+        ========================================= */
+
+        .result-card {
+            margin-top: 20px;
+            padding: 24px;
+            border-radius: 18px;
+            background: rgba(15, 23, 42, 0.65);
+            border: 1px solid rgba(56, 189, 248, 0.18);
+            box-shadow: 0 10px 35px rgba(0, 0, 0, 0.18);
+        }
+
+        .result-label {
+            color: #94A3B8;
+            font-size: 13px;
+            margin-bottom: 6px;
+        }
+
+        .result-disease {
+            font-size: 27px;
+            font-weight: 700;
+            margin-bottom: 18px;
+        }
+
+        .confidence-label {
+            display: flex;
+            justify-content: space-between;
+            color: #CBD5E1;
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+
+        .confidence-bar {
+            width: 100%;
+            height: 10px;
+            border-radius: 10px;
+            background: rgba(148, 163, 184, 0.15);
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            border-radius: 10px;
+            background: linear-gradient(
+                90deg,
+                #38BDF8,
+                #8B5CF6
+            );
+            box-shadow: 0 0 12px rgba(56, 189, 248, 0.45);
+            transition: width 0.8s ease;
+        }
+
+        .result-status {
+            display: inline-block;
+            margin-top: 18px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            color: #BAE6FD;
+            background: rgba(56, 189, 248, 0.10);
+            border: 1px solid rgba(56, 189, 248, 0.20);
+        }
+
+        </style>
+        """,
+        unsafe_allow_html=True
     )
 
+    st.html("""
+    <div class="prediction-hero">
+
+        <div class="prediction-icon">
+            🔬
+        </div>
+
+        <div class="prediction-title">
+            Skin Analysis
+        </div>
+
+        <div class="prediction-subtitle">
+            Upload a skin image for AI-assisted skin lesion screening.
+        </div>
+
+        <div class="prediction-status">
+            <span></span>
+            AI Screening System Ready
+        </div>
+
+    </div>
+    """,)
     uploaded_file = st.file_uploader(
         "Choose an image",
         type=["jpg", "jpeg", "png"],
@@ -145,29 +323,35 @@ def prediction_page():
 
         st.success("Analysis Completed ✅")
 
-        st.markdown("## 🧬 Prediction Result")
+        st.html(f"""
+        <div class="result-card">
 
-        c1, c2 = st.columns(2)
+            <div class="result-label">
+                🧬 AI PREDICTION
+            </div>
 
-        with c1:
+            <div class="result-disease">
+                {disease}
+            </div>
 
-            st.markdown(
-                "### Predicted Class"
-            )
+            <div class="confidence-label">
+                <span>AI Confidence</span>
+                <span>{confidence}%</span>
+            </div>
 
-            st.markdown(
-                f"## 🧬 {disease}"
-            )
+            <div class="confidence-bar">
+                <div
+                    class="confidence-fill"
+                    style="width: {confidence}%;">
+                </div>
+            </div>
 
-        with c2:
+            <div class="result-status">
+                ✓ Analysis completed
+            </div>
 
-            st.markdown(
-                "### AI Confidence"
-            )
-
-            st.markdown(
-                f"## 📊 {confidence}%"
-            )
+        </div>
+        """)
 
         st.divider()
 

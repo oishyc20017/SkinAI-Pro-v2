@@ -65,6 +65,11 @@ def sidebar():
         # ==============================
         # MAIN NAVIGATION
         # ==============================
+        menu_button(
+            "🏠",
+            "Dashboard",
+            "dashboard"
+)
 
         menu_button(
             "🔬",

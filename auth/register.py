@@ -1,7 +1,11 @@
 import streamlit as st
 
-from database.db import get_connection
+from database.db import get_connection, get_database_backend
 from utils.password import hash_password
+
+
+def _placeholder():
+    return "?" if get_database_backend() == "sqlite" else "%s"
 
 
 def register_page():
@@ -30,18 +34,28 @@ def register_page():
     ):
 
         if not fullname or not email or not password:
-            st.warning("Please fill all fields.")
+
+            st.warning(
+                "Please fill all fields."
+            )
+
             return
 
         conn = get_connection()
         c = conn.cursor()
 
+        p = _placeholder()
+
         try:
 
             c.execute(
-                """
-                INSERT INTO users(fullname,email,password)
-                VALUES(%s,%s,%s)
+                f"""
+                INSERT INTO users(
+                    fullname,
+                    email,
+                    password
+                )
+                VALUES({p}, {p}, {p})
                 """,
                 (
                     fullname,
@@ -52,11 +66,19 @@ def register_page():
 
             conn.commit()
 
-            st.success("Registration Successful ✅")
+            st.success(
+                "Registration Successful ✅"
+            )
 
-        except Exception:
+        except Exception as e:
 
-            st.error("Email already exists.")
+            conn.rollback()
+
+            # Keep the user-friendly message
+            # for duplicate email.
+            st.error(
+                "Email already exists."
+            )
 
         finally:
 

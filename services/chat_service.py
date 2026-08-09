@@ -1,5 +1,17 @@
-from database.db import get_connection
+from database.db import get_connection, get_database_backend
 from utils.time_utils import get_bd_time, format_bd_time
+
+
+# =========================================================
+# DATABASE PLACEHOLDER
+# =========================================================
+
+def _placeholder():
+    """
+    SQLite -> ?
+    Neon PostgreSQL -> %s
+    """
+    return "?" if get_database_backend() == "sqlite" else "%s"
 
 
 # =========================================================
@@ -11,30 +23,59 @@ def create_conversation(user_id, title="New Chat"):
     conn = get_connection()
     c = conn.cursor()
 
+    p = _placeholder()
+
     try:
 
-        c.execute(
-            """
-            INSERT INTO conversations(
-                user_id,
-                title,
-                created_at
-            )
-            VALUES(%s, %s, %s)
-            RETURNING id
-            """,
-            (
-                user_id,
-                title,
-                get_bd_time()
-            )
-        )
+        if get_database_backend() == "sqlite":
 
-        conversation_id = c.fetchone()[0]
+            c.execute(
+                f"""
+                INSERT INTO conversations(
+                    user_id,
+                    title,
+                    created_at
+                )
+                VALUES({p}, {p}, {p})
+                """,
+                (
+                    user_id,
+                    title,
+                    get_bd_time()
+                )
+            )
+
+            conversation_id = c.lastrowid
+
+        else:
+
+            c.execute(
+                """
+                INSERT INTO conversations(
+                    user_id,
+                    title,
+                    created_at
+                )
+                VALUES(%s, %s, %s)
+                RETURNING id
+                """,
+                (
+                    user_id,
+                    title,
+                    get_bd_time()
+                )
+            )
+
+            conversation_id = c.fetchone()[0]
 
         conn.commit()
 
         return conversation_id
+
+    except Exception:
+
+        conn.rollback()
+        raise
 
     finally:
 
@@ -55,10 +96,12 @@ def save_message(
     conn = get_connection()
     c = conn.cursor()
 
+    p = _placeholder()
+
     try:
 
         c.execute(
-            """
+            f"""
             INSERT INTO messages(
                 conversation_id,
                 user_id,
@@ -66,7 +109,7 @@ def save_message(
                 message,
                 created_at
             )
-            VALUES(%s, %s, %s, %s, %s)
+            VALUES({p}, {p}, {p}, {p}, {p})
             """,
             (
                 conversation_id,
@@ -78,6 +121,11 @@ def save_message(
         )
 
         conn.commit()
+
+    except Exception:
+
+        conn.rollback()
+        raise
 
     finally:
 
@@ -93,16 +141,20 @@ def load_messages(conversation_id):
     conn = get_connection()
     c = conn.cursor()
 
+    p = _placeholder()
+
+    rows = []
+
     try:
 
         c.execute(
-            """
+            f"""
             SELECT
                 role,
                 message,
                 created_at
             FROM messages
-            WHERE conversation_id=%s
+            WHERE conversation_id={p}
             ORDER BY id
             """,
             (conversation_id,)
@@ -138,15 +190,19 @@ def load_conversations(user_id):
     conn = get_connection()
     c = conn.cursor()
 
+    p = _placeholder()
+
+    rows = []
+
     try:
 
         c.execute(
-            """
+            f"""
             SELECT
                 id,
                 title
             FROM conversations
-            WHERE user_id=%s
+            WHERE user_id={p}
             ORDER BY id DESC
             """,
             (user_id,)
@@ -173,13 +229,15 @@ def update_conversation_title(
     conn = get_connection()
     c = conn.cursor()
 
+    p = _placeholder()
+
     try:
 
         c.execute(
-            """
+            f"""
             UPDATE conversations
-            SET title=%s
-            WHERE id=%s
+            SET title={p}
+            WHERE id={p}
             """,
             (
                 title,
@@ -188,6 +246,11 @@ def update_conversation_title(
         )
 
         conn.commit()
+
+    except Exception:
+
+        conn.rollback()
+        raise
 
     finally:
 

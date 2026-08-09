@@ -56,10 +56,10 @@ sidebar()
 
 if st.session_state.logged_in:
 
-    if "page" not in st.session_state:
-        st.session_state.page = "chat"
+    if st.session_state.page == "dashboard":
+        dashboard_page()
 
-    if st.session_state.page == "chat":
+    elif st.session_state.page == "chat":
         chat_page()
 
     elif st.session_state.page == "prediction":
@@ -70,6 +70,7 @@ if st.session_state.logged_in:
 
     elif st.session_state.page == "history":
         history_page()
+
     elif st.session_state.page == "admin":
         admin_page()
     # show success message if analysis finished elsewhere
