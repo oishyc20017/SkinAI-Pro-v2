@@ -50,13 +50,13 @@ def create_conversation(user_id, title="New Chat"):
         else:
 
             c.execute(
-                """
+                f"""
                 INSERT INTO conversations(
                     user_id,
                     title,
                     created_at
                 )
-                VALUES(%s, %s, %s)
+                VALUES({p}, {p}, {p})
                 RETURNING id
                 """,
                 (
@@ -143,8 +143,6 @@ def load_messages(conversation_id):
 
     p = _placeholder()
 
-    rows = []
-
     try:
 
         c.execute(
@@ -191,8 +189,6 @@ def load_conversations(user_id):
     c = conn.cursor()
 
     p = _placeholder()
-
-    rows = []
 
     try:
 
