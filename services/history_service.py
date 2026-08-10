@@ -6,25 +6,25 @@ def get_prediction_history(user_id):
     conn = get_connection()
     c = conn.cursor()
 
-    c.execute(
-        """
-        SELECT
-            id,
-            disease,
-            confidence,
-            created_at
-        FROM prediction_history
-        WHERE user_id=%s
-        ORDER BY id DESC
-        """,
-        (user_id,)
-    )
+    try:
+        c.execute(
+            """
+            SELECT
+                id,
+                disease,
+                confidence,
+                created_at
+            FROM prediction_history
+            WHERE user_id=?
+            ORDER BY id DESC
+            """,
+            (user_id,)
+        )
 
-    rows = c.fetchall()
+        return c.fetchall()
 
-    conn.close()
-
-    return rows
+    finally:
+        conn.close()
 
 
 def delete_prediction(prediction_id):
@@ -32,13 +32,20 @@ def delete_prediction(prediction_id):
     conn = get_connection()
     c = conn.cursor()
 
-    c.execute(
-        """
-        DELETE FROM prediction_history
-        WHERE id=%s
-        """,
-        (prediction_id,)
-    )
+    try:
+        c.execute(
+            """
+            DELETE FROM prediction_history
+            WHERE id=?
+            """,
+            (prediction_id,)
+        )
 
-    conn.commit()
-    conn.close()
+        conn.commit()
+
+    except Exception:
+        conn.rollback()
+        raise
+
+    finally:
+        conn.close()

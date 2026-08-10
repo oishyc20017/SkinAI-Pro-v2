@@ -11,6 +11,7 @@ from services.chat_service import (
 )
 
 from database.db import get_connection
+
 from utils.time_utils import format_bd_time
 
 
@@ -19,34 +20,34 @@ def get_booking_history(user_id):
     conn = get_connection()
     c = conn.cursor()
 
-    c.execute(
-        """
-        SELECT
-            id,
-            doctor_name,
-            booking_date,
-            booking_time,
-            status,
-            patient_name,
-            patient_email,
-            phone,
-            specialty,
-            hospital_name,
-            symptoms,
-            payment_method,
-            created_at
-        FROM bookings
-        WHERE user_id=%s
-        ORDER BY id DESC
-        """,
-        (user_id,)
-    )
+    try:
+        c.execute(
+            """
+            SELECT
+                id,
+                doctor_name,
+                booking_date,
+                booking_time,
+                status,
+                patient_name,
+                patient_email,
+                phone,
+                specialty,
+                hospital_name,
+                symptoms,
+                payment_method,
+                created_at
+            FROM bookings
+            WHERE user_id=?
+            ORDER BY id DESC
+            """,
+            (user_id,)
+        )
 
-    rows = c.fetchall()
+        return c.fetchall()
 
-    conn.close()
-
-    return rows
+    finally:
+        conn.close()
 
 
 def history_page():
@@ -65,9 +66,9 @@ def history_page():
         ]
     )
 
-    # =========================================================
-    # PREDICTION HISTORY
-    # =========================================================
+    # =========================================
+    # PREDICTIONS
+    # =========================================
 
     with prediction_tab:
 
@@ -75,7 +76,7 @@ def history_page():
             st.session_state.user_id
         )
 
-        if len(predictions) == 0:
+        if not predictions:
 
             st.info(
                 "🔬 No prediction history found yet."
@@ -115,8 +116,6 @@ def history_page():
                             f"{confidence}%"
                         )
 
-                    st.divider()
-
                     if st.button(
                         "🗑 Delete",
                         key=f"delete_{prediction_id}",
@@ -132,9 +131,10 @@ def history_page():
                         )
 
                         st.rerun()
-    # =========================================================
+
+    # =========================================
     # AI CHAT HISTORY
-    # =========================================================
+    # =========================================
 
     with chat_tab:
 
@@ -162,29 +162,9 @@ def history_page():
 
                 with st.container(border=True):
 
-                    # -----------------------------------------
-                    # Conversation Header
-                    # -----------------------------------------
-
-                    col1, col2 = st.columns(
-                        [5, 1]
+                    st.markdown(
+                        f"### 💬 {title or 'New Chat'}"
                     )
-
-                    with col1:
-
-                        st.markdown(
-                            f"### 💬 {title or 'New Chat'}"
-                        )
-
-                    with col2:
-
-                        st.caption(
-                            f"ID: {conversation_id}"
-                        )
-
-                    # -----------------------------------------
-                    # Messages
-                    # -----------------------------------------
 
                     if messages:
 
@@ -198,6 +178,7 @@ def history_page():
 
                             elif role == "assistant":
                                 last_ai_message = message
+
                         if last_user_message:
 
                             preview = last_user_message
@@ -230,10 +211,6 @@ def history_page():
                             "No messages in this conversation."
                         )
 
-                    # -----------------------------------------
-                    # Open Conversation
-                    # -----------------------------------------
-
                     if st.button(
                         "Open Conversation",
                         use_container_width=True,
@@ -244,23 +221,21 @@ def history_page():
                             conversation_id
                         )
 
-                        st.session_state.messages = []
-
-                        for role, message, created_at in messages:
-
-                            st.session_state.messages.append(
-                                {
-                                    "role": role,
-                                    "content": message
-                                }
-                            )
+                        st.session_state.messages = [
+                            {
+                                "role": role,
+                                "content": message
+                            }
+                            for role, message, created_at in messages
+                        ]
 
                         st.session_state.page = "chat"
 
                         st.rerun()
-    # =========================================================
+
+    # =========================================
     # BOOKING HISTORY
-    # =========================================================
+    # =========================================
 
     with booking_tab:
 
@@ -348,6 +323,8 @@ def history_page():
 
                     if symptoms:
 
-                        st.markdown("**📝 Reason for Visit**")
+                        st.markdown(
+                            "**📝 Reason for Visit**"
+                        )
 
                         st.write(symptoms)
