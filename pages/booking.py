@@ -1,9 +1,37 @@
+import sqlite3
+from pathlib import Path
 import streamlit as st
 from datetime import date
 
 from database.db import get_connection
 from utils.time_utils import get_bd_time
 
+
+# =========================================================
+# SQLITE DATABASE
+# =========================================================
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+SQLITE_DB_PATH = BASE_DIR / "skinai.db"
+
+
+def get_sqlite_connection():
+
+    conn = sqlite3.connect(
+        str(SQLITE_DB_PATH),
+        check_same_thread=False
+    )
+
+    conn.execute(
+        "PRAGMA foreign_keys = ON"
+    )
+
+    return conn
+
+
+# =========================================================
+# BOOKING PAGE
+# =========================================================
 
 def booking_page():
 
@@ -243,14 +271,28 @@ def booking_page():
             return
 
         # =================================================
-        # SAVE BOOKING TO DATABASE
+        # BOOKING DATA
         # =================================================
 
-        conn = get_connection()
+        user_id = st.session_state.user_id
+
+        booking_date_value = booking_date.strftime(
+            "%Y-%m-%d"
+        )
+
+        created_at = get_bd_time()
+
+        status = "Pending"
+
+        # =================================================
+        # 1. SAVE BOOKING TO NEON
+        # =================================================
+
+        neon_conn = get_connection()
 
         try:
 
-            with conn.cursor() as c:
+            with neon_conn.cursor() as c:
 
                 c.execute(
                     """
@@ -284,13 +326,14 @@ def booking_page():
                         %s,
                         %s
                     )
+                    RETURNING id
                     """,
                     (
-                        st.session_state.user_id,
+                        user_id,
                         doctor_name,
-                        booking_date.strftime("%Y-%m-%d"),
+                        booking_date_value,
                         booking_time,
-                        "Pending",
+                        status,
                         patient_name,
                         patient_email,
                         phone,
@@ -298,24 +341,114 @@ def booking_page():
                         hospital_name,
                         symptoms,
                         payment_method,
-                        get_bd_time()
+                        created_at
                     )
                 )
 
-            conn.commit()
+                booking_id = c.fetchone()[0]
 
-            st.success(
-                "Appointment booked successfully! ✅"
-            )
+            neon_conn.commit()
 
         except Exception as e:
 
-            conn.rollback()
+            neon_conn.rollback()
 
             st.error(
                 f"Booking failed: {e}"
             )
 
+            return
+
         finally:
 
-            conn.close()
+            neon_conn.close()
+
+        # =================================================
+        # 2. SAVE SAME BOOKING TO SQLITE IMMEDIATELY
+        # =================================================
+
+        sqlite_conn = get_sqlite_connection()
+
+        try:
+
+            sqlite_conn.execute(
+                """
+                INSERT OR IGNORE INTO bookings(
+                    id,
+                    user_id,
+                    doctor_name,
+                    booking_date,
+                    booking_time,
+                    status,
+                    patient_name,
+                    patient_email,
+                    phone,
+                    specialty,
+                    hospital_name,
+                    symptoms,
+                    payment_method,
+                    created_at
+                )
+                VALUES(
+                    ?,
+                    ?,
+                    ?,
+                    ?,
+                    ?,
+                    ?,
+                    ?,
+                    ?,
+                    ?,
+                    ?,
+                    ?,
+                    ?,
+                    ?,
+                    ?
+                )
+                """,
+                (
+                    booking_id,
+                    user_id,
+                    doctor_name,
+                    booking_date_value,
+                    booking_time,
+                    status,
+                    patient_name,
+                    patient_email,
+                    phone,
+                    specialty,
+                    hospital_name,
+                    symptoms,
+                    payment_method,
+                    created_at
+                )
+            )
+
+            sqlite_conn.commit()
+
+        except Exception as e:
+
+            sqlite_conn.rollback()
+
+            st.warning(
+                "Booking was saved successfully, "
+                "but local SQLite sync failed. "
+                "The automatic Neon → SQLite sync will recover it."
+            )
+
+            print(
+                "SQLite booking sync error:",
+                e
+            )
+
+        finally:
+
+            sqlite_conn.close()
+
+        # =================================================
+        # SUCCESS
+        # =================================================
+
+        st.success(
+            "Appointment booked successfully! ✅"
+        )

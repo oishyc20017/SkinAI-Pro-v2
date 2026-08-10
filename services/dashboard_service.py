@@ -1,22 +1,30 @@
-from database.db import (
-    get_connection,
-    get_database_backend
-)
+import sqlite3
+from pathlib import Path
 
+from database.db import get_connection
 from utils.time_utils import get_bd_time
 
 
 # =========================================================
-# PLACEHOLDER
+# SQLITE DATABASE
 # =========================================================
 
-def _placeholder():
+BASE_DIR = Path(__file__).resolve().parent.parent
+SQLITE_DB_PATH = BASE_DIR / "skinai.db"
 
-    return (
-        "?"
-        if get_database_backend() == "sqlite"
-        else "%s"
+
+def get_sqlite_connection():
+
+    conn = sqlite3.connect(
+        str(SQLITE_DB_PATH),
+        check_same_thread=False
     )
+
+    conn.execute(
+        "PRAGMA foreign_keys = ON"
+    )
+
+    return conn
 
 
 # =========================================================
@@ -29,41 +37,95 @@ def save_prediction(
     confidence
 ):
 
-    conn = get_connection()
-    c = conn.cursor()
+    created_at = get_bd_time()
 
-    p = _placeholder()
+    # =====================================================
+    # 1. SAVE TO NEON
+    # =====================================================
+
+    neon_conn = get_connection()
 
     try:
 
-        c.execute(
-            f"""
-            INSERT INTO prediction_history(
+        with neon_conn.cursor() as c:
+
+            c.execute(
+                """
+                INSERT INTO prediction_history(
+                    user_id,
+                    disease,
+                    confidence,
+                    created_at
+                )
+                VALUES(%s, %s, %s, %s)
+                RETURNING id
+                """,
+                (
+                    user_id,
+                    disease,
+                    confidence,
+                    created_at
+                )
+            )
+
+            prediction_id = c.fetchone()[0]
+
+        neon_conn.commit()
+
+    except Exception:
+
+        neon_conn.rollback()
+        raise
+
+    finally:
+
+        neon_conn.close()
+
+
+    # =====================================================
+    # 2. SAVE SAME PREDICTION TO SQLITE IMMEDIATELY
+    # =====================================================
+
+    sqlite_conn = get_sqlite_connection()
+
+    try:
+
+        sqlite_conn.execute(
+            """
+            INSERT OR IGNORE INTO prediction_history(
+                id,
                 user_id,
                 disease,
                 confidence,
                 created_at
             )
-            VALUES ({p}, {p}, {p}, {p})
+            VALUES(?, ?, ?, ?, ?)
             """,
             (
+                prediction_id,
                 user_id,
                 disease,
                 confidence,
-                get_bd_time()
+                created_at
             )
         )
 
-        conn.commit()
+        sqlite_conn.commit()
 
-    except Exception:
+    except Exception as e:
 
-        conn.rollback()
-        raise
+        sqlite_conn.rollback()
+
+        # Neon already contains the prediction.
+        # Backup sync will recover SQLite if needed.
+        print(
+            "SQLite prediction sync error:",
+            e
+        )
 
     finally:
 
-        conn.close()
+        sqlite_conn.close()
 
 
 # =========================================================
@@ -73,26 +135,25 @@ def save_prediction(
 def get_recent_prediction(user_id):
 
     conn = get_connection()
-    c = conn.cursor()
-
-    p = _placeholder()
 
     try:
 
-        c.execute(
-            f"""
-            SELECT
-                disease,
-                confidence
-            FROM prediction_history
-            WHERE user_id={p}
-            ORDER BY id DESC
-            LIMIT 1
-            """,
-            (user_id,)
-        )
+        with conn.cursor() as c:
 
-        return c.fetchone()
+            c.execute(
+                """
+                SELECT
+                    disease,
+                    confidence
+                FROM prediction_history
+                WHERE user_id=%s
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                (user_id,)
+            )
+
+            return c.fetchone()
 
     finally:
 
@@ -106,25 +167,24 @@ def get_recent_prediction(user_id):
 def get_recent_chat(user_id):
 
     conn = get_connection()
-    c = conn.cursor()
-
-    p = _placeholder()
 
     try:
 
-        c.execute(
-            f"""
-            SELECT
-                message
-            FROM messages
-            WHERE user_id={p}
-            ORDER BY id DESC
-            LIMIT 1
-            """,
-            (user_id,)
-        )
+        with conn.cursor() as c:
 
-        return c.fetchone()
+            c.execute(
+                """
+                SELECT
+                    message
+                FROM messages
+                WHERE user_id=%s
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                (user_id,)
+            )
+
+            return c.fetchone()
 
     finally:
 
@@ -138,28 +198,27 @@ def get_recent_chat(user_id):
 def get_recent_booking(user_id):
 
     conn = get_connection()
-    c = conn.cursor()
-
-    p = _placeholder()
 
     try:
 
-        c.execute(
-            f"""
-            SELECT
-                doctor_name,
-                booking_date,
-                booking_time,
-                status
-            FROM bookings
-            WHERE user_id={p}
-            ORDER BY id DESC
-            LIMIT 1
-            """,
-            (user_id,)
-        )
+        with conn.cursor() as c:
 
-        return c.fetchone()
+            c.execute(
+                """
+                SELECT
+                    doctor_name,
+                    booking_date,
+                    booking_time,
+                    status
+                FROM bookings
+                WHERE user_id=%s
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                (user_id,)
+            )
+
+            return c.fetchone()
 
     finally:
 
