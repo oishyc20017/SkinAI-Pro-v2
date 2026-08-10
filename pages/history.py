@@ -10,45 +10,95 @@ from services.chat_service import (
     load_messages
 )
 
-from database.db import get_connection
+from database.db import (
+    get_connection,
+    get_database_backend
+)
 
 from utils.time_utils import format_bd_time
 
+
+# =========================================================
+# BOOKING HISTORY
+# =========================================================
 
 def get_booking_history(user_id):
 
     conn = get_connection()
     c = conn.cursor()
 
+    backend = get_database_backend()
+
     try:
-        c.execute(
-            """
-            SELECT
-                id,
-                doctor_name,
-                booking_date,
-                booking_time,
-                status,
-                patient_name,
-                patient_email,
-                phone,
-                specialty,
-                hospital_name,
-                symptoms,
-                payment_method,
-                created_at
-            FROM bookings
-            WHERE user_id=?
-            ORDER BY id DESC
-            """,
-            (user_id,)
-        )
+
+        # -------------------------------
+        # SQLITE
+        # -------------------------------
+
+        if backend == "sqlite":
+
+            c.execute(
+                """
+                SELECT
+                    id,
+                    doctor_name,
+                    booking_date,
+                    booking_time,
+                    status,
+                    patient_name,
+                    patient_email,
+                    phone,
+                    specialty,
+                    hospital_name,
+                    symptoms,
+                    payment_method,
+                    created_at
+                FROM bookings
+                WHERE user_id=?
+                ORDER BY id DESC
+                """,
+                (user_id,)
+            )
+
+        # -------------------------------
+        # NEON POSTGRESQL
+        # -------------------------------
+
+        else:
+
+            c.execute(
+                """
+                SELECT
+                    id,
+                    doctor_name,
+                    booking_date,
+                    booking_time,
+                    status,
+                    patient_name,
+                    patient_email,
+                    phone,
+                    specialty,
+                    hospital_name,
+                    symptoms,
+                    payment_method,
+                    created_at
+                FROM bookings
+                WHERE user_id=%s
+                ORDER BY id DESC
+                """,
+                (user_id,)
+            )
 
         return c.fetchall()
 
     finally:
+
         conn.close()
 
+
+# =========================================================
+# HISTORY PAGE
+# =========================================================
 
 def history_page():
 
@@ -66,9 +116,9 @@ def history_page():
         ]
     )
 
-    # =========================================
-    # PREDICTIONS
-    # =========================================
+    # =====================================================
+    # PREDICTION HISTORY
+    # =====================================================
 
     with prediction_tab:
 
@@ -76,7 +126,7 @@ def history_page():
             st.session_state.user_id
         )
 
-        if not predictions:
+        if len(predictions) == 0:
 
             st.info(
                 "🔬 No prediction history found yet."
@@ -116,6 +166,8 @@ def history_page():
                             f"{confidence}%"
                         )
 
+                    st.divider()
+
                     if st.button(
                         "🗑 Delete",
                         key=f"delete_{prediction_id}",
@@ -132,9 +184,9 @@ def history_page():
 
                         st.rerun()
 
-    # =========================================
+    # =====================================================
     # AI CHAT HISTORY
-    # =========================================
+    # =====================================================
 
     with chat_tab:
 
@@ -162,9 +214,27 @@ def history_page():
 
                 with st.container(border=True):
 
-                    st.markdown(
-                        f"### 💬 {title or 'New Chat'}"
-                    )
+                    # -------------------------------------
+                    # Conversation Header
+                    # -------------------------------------
+
+                    col1, col2 = st.columns([5, 1])
+
+                    with col1:
+
+                        st.markdown(
+                            f"### 💬 {title or 'New Chat'}"
+                        )
+
+                    with col2:
+
+                        st.caption(
+                            f"ID: {conversation_id}"
+                        )
+
+                    # -------------------------------------
+                    # Messages
+                    # -------------------------------------
 
                     if messages:
 
@@ -174,9 +244,11 @@ def history_page():
                         for role, message, created_at in messages:
 
                             if role == "user":
+
                                 last_user_message = message
 
                             elif role == "assistant":
+
                                 last_ai_message = message
 
                         if last_user_message:
@@ -184,7 +256,11 @@ def history_page():
                             preview = last_user_message
 
                             if len(preview) > 100:
-                                preview = preview[:100] + "..."
+
+                                preview = (
+                                    preview[:100]
+                                    + "..."
+                                )
 
                             st.markdown(
                                 f"**You:** {preview}"
@@ -195,7 +271,11 @@ def history_page():
                             preview = last_ai_message
 
                             if len(preview) > 150:
-                                preview = preview[:150] + "..."
+
+                                preview = (
+                                    preview[:150]
+                                    + "..."
+                                )
 
                             st.markdown(
                                 f"**SkinAI:** {preview}"
@@ -211,6 +291,10 @@ def history_page():
                             "No messages in this conversation."
                         )
 
+                    # -------------------------------------
+                    # Open Conversation
+                    # -------------------------------------
+
                     if st.button(
                         "Open Conversation",
                         use_container_width=True,
@@ -221,21 +305,24 @@ def history_page():
                             conversation_id
                         )
 
-                        st.session_state.messages = [
-                            {
-                                "role": role,
-                                "content": message
-                            }
-                            for role, message, created_at in messages
-                        ]
+                        st.session_state.messages = []
+
+                        for role, message, created_at in messages:
+
+                            st.session_state.messages.append(
+                                {
+                                    "role": role,
+                                    "content": message
+                                }
+                            )
 
                         st.session_state.page = "chat"
 
                         st.rerun()
 
-    # =========================================
+    # =====================================================
     # BOOKING HISTORY
-    # =========================================
+    # =====================================================
 
     with booking_tab:
 

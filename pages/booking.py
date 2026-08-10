@@ -17,9 +17,9 @@ def booking_page():
         unsafe_allow_html=True
     )
 
-    # ---------------------------------
-    # Doctor Information
-    # ---------------------------------
+    # =====================================================
+    # DOCTOR INFORMATION
+    # =====================================================
 
     doctors = {
         "Dr. Sarah Ahmed": {
@@ -70,9 +70,9 @@ def booking_page():
 
     st.divider()
 
-    # ---------------------------------
-    # Patient Information
-    # ---------------------------------
+    # =====================================================
+    # PATIENT INFORMATION
+    # =====================================================
 
     st.markdown("### 👤 Patient Information")
 
@@ -114,9 +114,9 @@ def booking_page():
 
     st.divider()
 
-    # ---------------------------------
-    # Appointment Information
-    # ---------------------------------
+    # =====================================================
+    # APPOINTMENT INFORMATION
+    # =====================================================
 
     st.markdown("### 📅 Appointment Details")
 
@@ -163,9 +163,9 @@ def booking_page():
 
     st.divider()
 
-    # ---------------------------------
-    # Appointment Summary
-    # ---------------------------------
+    # =====================================================
+    # APPOINTMENT SUMMARY
+    # =====================================================
 
     st.markdown("### 📋 Appointment Summary")
 
@@ -182,20 +182,30 @@ def booking_page():
         st.write(
             f"**Date:** {booking_date.strftime('%d %B %Y')}"
         )
-        st.write(f"**Time:** {booking_time}")
-        st.write(f"**Payment:** {payment_method}")
+
+        st.write(
+            f"**Time:** {booking_time}"
+        )
+
+        st.write(
+            f"**Payment:** {payment_method}"
+        )
 
     st.write("")
 
-    # ---------------------------------
-    # Confirm Booking
-    # ---------------------------------
+    # =====================================================
+    # CONFIRM BOOKING
+    # =====================================================
 
     if st.button(
         "📅 Confirm Appointment",
         use_container_width=True,
         key="confirm_booking"
     ):
+
+        # -------------------------------------------------
+        # LOGIN CHECK
+        # -------------------------------------------------
 
         if not st.session_state.get(
             "logged_in",
@@ -208,6 +218,10 @@ def booking_page():
 
             return
 
+        # -------------------------------------------------
+        # PHONE CHECK
+        # -------------------------------------------------
+
         if not phone.strip():
 
             st.warning(
@@ -215,6 +229,10 @@ def booking_page():
             )
 
             return
+
+        # -------------------------------------------------
+        # SYMPTOMS CHECK
+        # -------------------------------------------------
 
         if not symptoms.strip():
 
@@ -224,48 +242,80 @@ def booking_page():
 
             return
 
+        # =================================================
+        # SAVE BOOKING TO DATABASE
+        # =================================================
+
         conn = get_connection()
-        c = conn.cursor()
 
-        c.execute(
-            """
-            INSERT INTO bookings(
-                user_id,
-                doctor_name,
-                booking_date,
-                booking_time,
-                status,
-                patient_name,
-                patient_email,
-                phone,
-                specialty,
-                hospital_name,
-                symptoms,
-                payment_method,
-                created_at
+        try:
+
+            with conn.cursor() as c:
+
+                c.execute(
+                    """
+                    INSERT INTO bookings(
+                        user_id,
+                        doctor_name,
+                        booking_date,
+                        booking_time,
+                        status,
+                        patient_name,
+                        patient_email,
+                        phone,
+                        specialty,
+                        hospital_name,
+                        symptoms,
+                        payment_method,
+                        created_at
+                    )
+                    VALUES(
+                        %s,
+                        %s,
+                        %s,
+                        %s,
+                        %s,
+                        %s,
+                        %s,
+                        %s,
+                        %s,
+                        %s,
+                        %s,
+                        %s,
+                        %s
+                    )
+                    """,
+                    (
+                        st.session_state.user_id,
+                        doctor_name,
+                        booking_date.strftime("%Y-%m-%d"),
+                        booking_time,
+                        "Pending",
+                        patient_name,
+                        patient_email,
+                        phone,
+                        specialty,
+                        hospital_name,
+                        symptoms,
+                        payment_method,
+                        get_bd_time()
+                    )
+                )
+
+            conn.commit()
+
+            st.success(
+                "Appointment booked successfully! ✅"
             )
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
-            """,
-            (
-                st.session_state.user_id,
-                doctor_name,
-                booking_date.strftime("%Y-%m-%d"),
-                booking_time,
-                "Pending",
-                patient_name,
-                patient_email,
-                phone,
-                specialty,
-                hospital_name,
-                symptoms,
-                payment_method,
-                get_bd_time()
+
+        except Exception as e:
+
+            conn.rollback()
+
+            st.error(
+                f"Booking failed: {e}"
             )
-        )
 
-        conn.commit()
-        conn.close()
+        finally:
 
-        st.success(
-            "Appointment booked successfully! ✅"
-        )
+            conn.close()
