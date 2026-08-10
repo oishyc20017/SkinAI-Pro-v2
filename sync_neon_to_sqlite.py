@@ -1,5 +1,4 @@
 import sqlite3
-import shutil
 from pathlib import Path
 
 import psycopg
@@ -7,386 +6,308 @@ import streamlit as st
 
 
 # =========================================================
-# DATABASE PATHS
+# PATH
 # =========================================================
 
 BASE_DIR = Path(__file__).resolve().parent
 
 SQLITE_DB = BASE_DIR / "skinai.db"
-BACKUP_DB = BASE_DIR / "skinai_before_sync.db"
 
 
 # =========================================================
-# CHECK SQLITE
+# NEON CONNECTION
 # =========================================================
 
-if not SQLITE_DB.exists():
-    raise FileNotFoundError(
-        f"SQLite database not found: {SQLITE_DB}"
+def get_neon_connection():
+
+    neon_url = st.secrets.get("NEON_DATABASE_URL")
+
+    if not neon_url:
+        raise RuntimeError(
+            "NEON_DATABASE_URL is not configured."
+        )
+
+    return psycopg.connect(neon_url)
+
+
+# =========================================================
+# SQLITE CONNECTION
+# =========================================================
+
+def get_sqlite_connection():
+
+    if not SQLITE_DB.exists():
+        raise FileNotFoundError(
+            f"SQLite database not found: {SQLITE_DB}"
+        )
+
+    conn = sqlite3.connect(str(SQLITE_DB))
+
+    conn.execute(
+        "PRAGMA foreign_keys = ON"
     )
 
-
-# =========================================================
-# BACKUP FIRST
-# =========================================================
-
-print("Creating SQLite backup...")
-
-shutil.copy2(
-    SQLITE_DB,
-    BACKUP_DB
-)
-
-print(
-    f"Backup created: {BACKUP_DB}"
-)
+    return conn
 
 
 # =========================================================
-# CONNECTIONS
+# SYNC TABLE
 # =========================================================
 
-sqlite_conn = sqlite3.connect(
-    str(SQLITE_DB)
-)
+def sync_table(
+    neon_conn,
+    sqlite_conn,
+    table_name,
+    columns
+):
 
-sqlite_conn.execute(
-    "PRAGMA foreign_keys = ON"
-)
+    column_list = ", ".join(columns)
 
-neon_url = st.secrets.get(
-    "NEON_DATABASE_URL"
-)
-
-if not neon_url:
-    sqlite_conn.close()
-
-    raise RuntimeError(
-        "NEON_DATABASE_URL is not configured."
+    placeholders = ", ".join(
+        ["?" for _ in columns]
     )
 
+    # -----------------------------------------------------
+    # GET DATA FROM NEON
+    # -----------------------------------------------------
 
-print("Connecting to Neon...")
+    with neon_conn.cursor() as cursor:
 
-neon_conn = psycopg.connect(
-    neon_url
-)
-
-print("Neon connected successfully.")
-
-
-# =========================================================
-# TABLES
-# =========================================================
-
-tables = [
-    "users",
-    "conversations",
-    "messages",
-    "prediction_history",
-    "bookings"
-]
-
-
-try:
-
-    # =====================================================
-    # SYNC USERS
-    # =====================================================
-
-    with neon_conn.cursor() as nc:
-
-        nc.execute(
-            """
-            SELECT
-                id,
-                fullname,
-                email,
-                password,
-                created_at
-            FROM users
+        cursor.execute(
+            f"""
+            SELECT {column_list}
+            FROM {table_name}
             ORDER BY id
             """
         )
 
-        users = nc.fetchall()
+        rows = cursor.fetchall()
 
+    # -----------------------------------------------------
+    # INSERT / UPDATE SQLITE
+    # -----------------------------------------------------
 
-    for row in users:
+    update_columns = [
+        column
+        for column in columns
+        if column != "id"
+    ]
+
+    update_clause = ", ".join(
+        f"{column}=excluded.{column}"
+        for column in update_columns
+    )
+
+    sql = f"""
+        INSERT INTO {table_name}(
+            {column_list}
+        )
+        VALUES(
+            {placeholders}
+        )
+        ON CONFLICT(id)
+        DO UPDATE SET
+            {update_clause}
+    """
+
+    for row in rows:
 
         sqlite_conn.execute(
-            """
-            INSERT OR IGNORE INTO users(
-                id,
-                fullname,
-                email,
-                password,
-                created_at
-            )
-            VALUES(?, ?, ?, ?, ?)
-            """,
+            sql,
             row
         )
 
-
     print(
-        f"Users synced: {len(users)}"
+        f"{table_name}: {len(rows)} rows synced"
     )
 
 
-    # =====================================================
-    # CONVERSATIONS
-    # =====================================================
+# =========================================================
+# MAIN SYNC
+# =========================================================
 
-    with neon_conn.cursor() as nc:
+def sync_neon_to_sqlite():
 
-        nc.execute(
-            """
-            SELECT
-                id,
-                user_id,
-                title,
-                created_at
-            FROM conversations
-            ORDER BY id
-            """
-        )
+    print("=" * 60)
+    print("NEON → SQLITE SYNC STARTED")
+    print("=" * 60)
 
-        conversations = nc.fetchall()
+    neon_conn = None
+    sqlite_conn = None
 
+    try:
 
-    for row in conversations:
+        # -------------------------------------------------
+        # CONNECTIONS
+        # -------------------------------------------------
 
-        sqlite_conn.execute(
-            """
-            INSERT OR IGNORE INTO conversations(
-                id,
-                user_id,
-                title,
-                created_at
-            )
-            VALUES(?, ?, ?, ?)
-            """,
-            row
-        )
+        print("Connecting to Neon...")
 
+        neon_conn = get_neon_connection()
 
-    print(
-        f"Conversations synced: {len(conversations)}"
-    )
+        print("Neon connected successfully.")
 
-
-    # =====================================================
-    # MESSAGES
-    # =====================================================
-
-    with neon_conn.cursor() as nc:
-
-        nc.execute(
-            """
-            SELECT
-                id,
-                conversation_id,
-                user_id,
-                role,
-                message,
-                created_at
-            FROM messages
-            ORDER BY id
-            """
-        )
-
-        messages = nc.fetchall()
-
-
-    for row in messages:
-
-        sqlite_conn.execute(
-            """
-            INSERT OR IGNORE INTO messages(
-                id,
-                conversation_id,
-                user_id,
-                role,
-                message,
-                created_at
-            )
-            VALUES(?, ?, ?, ?, ?, ?)
-            """,
-            row
-        )
-
-
-    print(
-        f"Messages synced: {len(messages)}"
-    )
-
-
-    # =====================================================
-    # PREDICTION HISTORY
-    # =====================================================
-
-    with neon_conn.cursor() as nc:
-
-        nc.execute(
-            """
-            SELECT
-                id,
-                user_id,
-                disease,
-                confidence,
-                image_path,
-                created_at
-            FROM prediction_history
-            ORDER BY id
-            """
-        )
-
-        predictions = nc.fetchall()
-
-
-    for row in predictions:
-
-        sqlite_conn.execute(
-            """
-            INSERT OR IGNORE INTO prediction_history(
-                id,
-                user_id,
-                disease,
-                confidence,
-                image_path,
-                created_at
-            )
-            VALUES(?, ?, ?, ?, ?, ?)
-            """,
-            row
-        )
-
-
-    print(
-        f"Predictions synced: {len(predictions)}"
-    )
-
-
-    # =====================================================
-    # BOOKINGS
-    # =====================================================
-
-    with neon_conn.cursor() as nc:
-
-        nc.execute(
-            """
-            SELECT
-                id,
-                user_id,
-                doctor_name,
-                booking_date,
-                booking_time,
-                status,
-                created_at,
-                patient_name,
-                patient_email,
-                phone,
-                specialty,
-                hospital_name,
-                symptoms,
-                payment_method
-            FROM bookings
-            ORDER BY id
-            """
-        )
-
-        bookings = nc.fetchall()
-
-
-    for row in bookings:
-
-        sqlite_conn.execute(
-            """
-            INSERT OR IGNORE INTO bookings(
-                id,
-                user_id,
-                doctor_name,
-                booking_date,
-                booking_time,
-                status,
-                created_at,
-                patient_name,
-                patient_email,
-                phone,
-                specialty,
-                hospital_name,
-                symptoms,
-                payment_method
-            )
-            VALUES(
-                ?, ?, ?, ?, ?, ?, ?, ?,
-                ?, ?, ?, ?, ?, ?
-            )
-            """,
-            row
-        )
-
-
-    print(
-        f"Bookings synced: {len(bookings)}"
-    )
-
-
-    # =====================================================
-    # COMMIT SQLITE
-    # =====================================================
-
-    sqlite_conn.commit()
-
-
-    # =====================================================
-    # FIX SQLITE AUTOINCREMENT COUNTERS
-    # =====================================================
-
-    for table in tables:
-
-        sqlite_conn.execute(
-            """
-            INSERT OR REPLACE INTO sqlite_sequence(
-                name,
-                seq
-            )
-            SELECT
-                ?,
-                COALESCE(MAX(id), 0)
-            FROM """
-            + table,
-            (table,)
-        )
-
-
-    sqlite_conn.commit()
-
-
-    # =====================================================
-    # FINAL COUNTS
-    # =====================================================
-
-    print("\nFinal SQLite counts:")
-
-    for table in tables:
-
-        count = sqlite_conn.execute(
-            f"SELECT COUNT(*) FROM {table}"
-        ).fetchone()[0]
+        sqlite_conn = get_sqlite_connection()
 
         print(
-            f"{table}: {count}"
+            f"Using SQLite: {SQLITE_DB}"
         )
 
+        # -------------------------------------------------
+        # USERS
+        # -------------------------------------------------
 
-    print(
-        "\nNeon → SQLite sync completed successfully."
-    )
+        sync_table(
+            neon_conn,
+            sqlite_conn,
+            "users",
+            [
+                "id",
+                "fullname",
+                "email",
+                "password",
+                "created_at"
+            ]
+        )
+
+        # -------------------------------------------------
+        # CONVERSATIONS
+        # -------------------------------------------------
+
+        sync_table(
+            neon_conn,
+            sqlite_conn,
+            "conversations",
+            [
+                "id",
+                "user_id",
+                "title",
+                "created_at"
+            ]
+        )
+
+        # -------------------------------------------------
+        # MESSAGES
+        # -------------------------------------------------
+
+        sync_table(
+            neon_conn,
+            sqlite_conn,
+            "messages",
+            [
+                "id",
+                "conversation_id",
+                "user_id",
+                "role",
+                "message",
+                "created_at"
+            ]
+        )
+
+        # -------------------------------------------------
+        # PREDICTIONS
+        # -------------------------------------------------
+
+        sync_table(
+            neon_conn,
+            sqlite_conn,
+            "prediction_history",
+            [
+                "id",
+                "user_id",
+                "disease",
+                "confidence",
+                "image_path",
+                "created_at"
+            ]
+        )
+
+        # -------------------------------------------------
+        # BOOKINGS
+        # -------------------------------------------------
+
+        sync_table(
+            neon_conn,
+            sqlite_conn,
+            "bookings",
+            [
+                "id",
+                "user_id",
+                "doctor_name",
+                "specialty",
+                "hospital_name",
+                "patient_name",
+                "patient_email",
+                "phone",
+                "booking_date",
+                "booking_time",
+                "symptoms",
+                "payment_method",
+                "status",
+                "created_at"
+            ]
+        )
+
+        # -------------------------------------------------
+        # COMMIT
+        # -------------------------------------------------
+
+        sqlite_conn.commit()
+
+        print()
+        print("=" * 60)
+        print("SYNC COMPLETED SUCCESSFULLY")
+        print("=" * 60)
+
+        # -------------------------------------------------
+        # COUNTS
+        # -------------------------------------------------
+
+        tables = [
+            "users",
+            "conversations",
+            "messages",
+            "prediction_history",
+            "bookings"
+        ]
+
+        print()
+        print("SQLite counts:")
+
+        for table in tables:
+
+            count = sqlite_conn.execute(
+                f"SELECT COUNT(*) FROM {table}"
+            ).fetchone()[0]
+
+            print(
+                f"{table}: {count}"
+            )
+
+    except Exception:
+
+        if sqlite_conn is not None:
+
+            try:
+                sqlite_conn.rollback()
+            except Exception:
+                pass
+
+        raise
+
+    finally:
+
+        if sqlite_conn is not None:
+            sqlite_conn.close()
+
+        if neon_conn is not None:
+            neon_conn.close()
 
 
-finally:
+# =========================================================
+# RUN
+# =========================================================
 
-    sqlite_conn.close()
-    neon_conn.close()
+if __name__ == "__main__":
+
+    sync_neon_to_sqlite()
