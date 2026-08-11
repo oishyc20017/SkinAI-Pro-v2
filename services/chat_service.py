@@ -6,7 +6,7 @@ from utils.time_utils import get_bd_time, format_bd_time
 
 
 # =========================================================
-# SQLITE DATABASE
+# LOCAL SQLITE DATABASE
 # =========================================================
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -14,6 +14,7 @@ SQLITE_DB_PATH = BASE_DIR / "skinai.db"
 
 
 def get_sqlite_connection():
+
     conn = sqlite3.connect(
         str(SQLITE_DB_PATH),
         check_same_thread=False
@@ -30,7 +31,10 @@ def get_sqlite_connection():
 # CREATE CONVERSATION
 # =========================================================
 
-def create_conversation(user_id, title="New Chat"):
+def create_conversation(
+    user_id,
+    title="New Chat"
+):
 
     created_at = get_bd_time()
 
@@ -38,9 +42,11 @@ def create_conversation(user_id, title="New Chat"):
     # 1. SAVE TO NEON
     # =====================================================
 
-    neon_conn = get_connection()
+    neon_conn = None
 
     try:
+
+        neon_conn = get_connection()
 
         with neon_conn.cursor() as c:
 
@@ -67,45 +73,61 @@ def create_conversation(user_id, title="New Chat"):
 
     except Exception:
 
-        neon_conn.rollback()
+        if neon_conn:
+            neon_conn.rollback()
+
         raise
 
     finally:
 
-        neon_conn.close()
+        if neon_conn:
+            neon_conn.close()
 
 
     # =====================================================
-    # 2. SAVE SAME CONVERSATION TO SQLITE
+    # 2. SAVE TO LOCAL SQLITE
+    #
+    # This succeeds when running locally.
+    # On Streamlit Cloud, failure is ignored because
+    # Neon remains the live database.
     # =====================================================
-
-    sqlite_conn = get_sqlite_connection()
 
     try:
 
-        sqlite_conn.execute(
-            """
-            INSERT OR IGNORE INTO conversations(
-                id,
-                user_id,
-                title,
-                created_at
+        sqlite_conn = get_sqlite_connection()
+
+        try:
+
+            sqlite_conn.execute(
+                """
+                INSERT OR IGNORE INTO conversations(
+                    id,
+                    user_id,
+                    title,
+                    created_at
+                )
+                VALUES(?, ?, ?, ?)
+                """,
+                (
+                    conversation_id,
+                    user_id,
+                    title,
+                    created_at
+                )
             )
-            VALUES(?, ?, ?, ?)
-            """,
-            (
-                conversation_id,
-                user_id,
-                title,
-                created_at
-            )
+
+            sqlite_conn.commit()
+
+        finally:
+
+            sqlite_conn.close()
+
+    except Exception as e:
+
+        print(
+            "SQLite conversation sync skipped:",
+            e
         )
-
-        sqlite_conn.commit()
-
-    finally:
-
-        sqlite_conn.close()
 
 
     return conversation_id
@@ -128,9 +150,11 @@ def save_message(
     # 1. SAVE TO NEON
     # =====================================================
 
-    neon_conn = get_connection()
+    neon_conn = None
 
     try:
+
+        neon_conn = get_connection()
 
         with neon_conn.cursor() as c:
 
@@ -161,60 +185,76 @@ def save_message(
 
     except Exception:
 
-        neon_conn.rollback()
+        if neon_conn:
+            neon_conn.rollback()
+
         raise
 
     finally:
 
-        neon_conn.close()
+        if neon_conn:
+            neon_conn.close()
 
 
     # =====================================================
-    # 2. SAVE SAME MESSAGE TO SQLITE
+    # 2. SAVE SAME MESSAGE TO LOCAL SQLITE
     # =====================================================
-
-    sqlite_conn = get_sqlite_connection()
 
     try:
 
-        sqlite_conn.execute(
-            """
-            INSERT OR IGNORE INTO messages(
-                id,
-                conversation_id,
-                user_id,
-                role,
-                message,
-                created_at
+        sqlite_conn = get_sqlite_connection()
+
+        try:
+
+            sqlite_conn.execute(
+                """
+                INSERT OR IGNORE INTO messages(
+                    id,
+                    conversation_id,
+                    user_id,
+                    role,
+                    message,
+                    created_at
+                )
+                VALUES(?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    message_id,
+                    conversation_id,
+                    user_id,
+                    role,
+                    message,
+                    created_at
+                )
             )
-            VALUES(?, ?, ?, ?, ?, ?)
-            """,
-            (
-                message_id,
-                conversation_id,
-                user_id,
-                role,
-                message,
-                created_at
-            )
+
+            sqlite_conn.commit()
+
+        finally:
+
+            sqlite_conn.close()
+
+    except Exception as e:
+
+        print(
+            "SQLite message sync skipped:",
+            e
         )
-
-        sqlite_conn.commit()
-
-    finally:
-
-        sqlite_conn.close()
 
 
 # =========================================================
 # LOAD MESSAGES
 # =========================================================
 
-def load_messages(conversation_id):
+def load_messages(
+    conversation_id
+):
 
-    conn = get_connection()
+    conn = None
 
     try:
+
+        conn = get_connection()
 
         with conn.cursor() as c:
 
@@ -228,14 +268,17 @@ def load_messages(conversation_id):
                 WHERE conversation_id=%s
                 ORDER BY id
                 """,
-                (conversation_id,)
+                (
+                    conversation_id,
+                )
             )
 
             rows = c.fetchall()
 
     finally:
 
-        conn.close()
+        if conn:
+            conn.close()
 
 
     formatted_rows = []
@@ -257,11 +300,15 @@ def load_messages(conversation_id):
 # LOAD CONVERSATIONS
 # =========================================================
 
-def load_conversations(user_id):
+def load_conversations(
+    user_id
+):
 
-    conn = get_connection()
+    conn = None
 
     try:
+
+        conn = get_connection()
 
         with conn.cursor() as c:
 
@@ -274,14 +321,17 @@ def load_conversations(user_id):
                 WHERE user_id=%s
                 ORDER BY id DESC
                 """,
-                (user_id,)
+                (
+                    user_id,
+                )
             )
 
             return c.fetchall()
 
     finally:
 
-        conn.close()
+        if conn:
+            conn.close()
 
 
 # =========================================================
@@ -297,9 +347,11 @@ def update_conversation_title(
     # 1. UPDATE NEON
     # =====================================================
 
-    neon_conn = get_connection()
+    neon_conn = None
 
     try:
+
+        neon_conn = get_connection()
 
         with neon_conn.cursor() as c:
 
@@ -319,36 +371,48 @@ def update_conversation_title(
 
     except Exception:
 
-        neon_conn.rollback()
+        if neon_conn:
+            neon_conn.rollback()
+
         raise
 
     finally:
 
-        neon_conn.close()
+        if neon_conn:
+            neon_conn.close()
 
 
     # =====================================================
-    # 2. UPDATE SQLITE
+    # 2. UPDATE LOCAL SQLITE
     # =====================================================
-
-    sqlite_conn = get_sqlite_connection()
 
     try:
 
-        sqlite_conn.execute(
-            """
-            UPDATE conversations
-            SET title=?
-            WHERE id=?
-            """,
-            (
-                title,
-                conversation_id
+        sqlite_conn = get_sqlite_connection()
+
+        try:
+
+            sqlite_conn.execute(
+                """
+                UPDATE conversations
+                SET title=?
+                WHERE id=?
+                """,
+                (
+                    title,
+                    conversation_id
+                )
             )
+
+            sqlite_conn.commit()
+
+        finally:
+
+            sqlite_conn.close()
+
+    except Exception as e:
+
+        print(
+            "SQLite conversation title sync skipped:",
+            e
         )
-
-        sqlite_conn.commit()
-
-    finally:
-
-        sqlite_conn.close()

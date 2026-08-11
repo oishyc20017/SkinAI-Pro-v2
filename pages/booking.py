@@ -1,14 +1,15 @@
 import sqlite3
 from pathlib import Path
-import streamlit as st
 from datetime import date
+
+import streamlit as st
 
 from database.db import get_connection
 from utils.time_utils import get_bd_time
 
 
 # =========================================================
-# SQLITE DATABASE
+# LOCAL SQLITE DATABASE
 # =========================================================
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -231,9 +232,9 @@ def booking_page():
         key="confirm_booking"
     ):
 
-        # -------------------------------------------------
+        # =================================================
         # LOGIN CHECK
-        # -------------------------------------------------
+        # =================================================
 
         if not st.session_state.get(
             "logged_in",
@@ -246,9 +247,9 @@ def booking_page():
 
             return
 
-        # -------------------------------------------------
+        # =================================================
         # PHONE CHECK
-        # -------------------------------------------------
+        # =================================================
 
         if not phone.strip():
 
@@ -258,9 +259,9 @@ def booking_page():
 
             return
 
-        # -------------------------------------------------
+        # =================================================
         # SYMPTOMS CHECK
-        # -------------------------------------------------
+        # =================================================
 
         if not symptoms.strip():
 
@@ -285,12 +286,15 @@ def booking_page():
         status = "Pending"
 
         # =================================================
-        # 1. SAVE BOOKING TO NEON
+        # 1. SAVE TO NEON
         # =================================================
 
-        neon_conn = get_connection()
+        neon_conn = None
+        booking_id = None
 
         try:
+
+            neon_conn = get_connection()
 
             with neon_conn.cursor() as c:
 
@@ -351,99 +355,100 @@ def booking_page():
 
         except Exception as e:
 
-            neon_conn.rollback()
+            if neon_conn:
+                neon_conn.rollback()
 
             st.error(
                 f"Booking failed: {e}"
+            )
+
+            print(
+                "Neon booking error:",
+                e
             )
 
             return
 
         finally:
 
-            neon_conn.close()
+            if neon_conn:
+                neon_conn.close()
 
         # =================================================
-        # 2. SAVE SAME BOOKING TO SQLITE IMMEDIATELY
+        # 2. SAVE TO LOCAL SQLITE
         # =================================================
-
-        sqlite_conn = get_sqlite_connection()
 
         try:
 
-            sqlite_conn.execute(
-                """
-                INSERT OR IGNORE INTO bookings(
-                    id,
-                    user_id,
-                    doctor_name,
-                    booking_date,
-                    booking_time,
-                    status,
-                    patient_name,
-                    patient_email,
-                    phone,
-                    specialty,
-                    hospital_name,
-                    symptoms,
-                    payment_method,
-                    created_at
-                )
-                VALUES(
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?
-                )
-                """,
-                (
-                    booking_id,
-                    user_id,
-                    doctor_name,
-                    booking_date_value,
-                    booking_time,
-                    status,
-                    patient_name,
-                    patient_email,
-                    phone,
-                    specialty,
-                    hospital_name,
-                    symptoms,
-                    payment_method,
-                    created_at
-                )
-            )
+            sqlite_conn = get_sqlite_connection()
 
-            sqlite_conn.commit()
+            try:
+
+                sqlite_conn.execute(
+                    """
+                    INSERT OR IGNORE INTO bookings(
+                        id,
+                        user_id,
+                        doctor_name,
+                        booking_date,
+                        booking_time,
+                        status,
+                        patient_name,
+                        patient_email,
+                        phone,
+                        specialty,
+                        hospital_name,
+                        symptoms,
+                        payment_method,
+                        created_at
+                    )
+                    VALUES(
+                        ?,
+                        ?,
+                        ?,
+                        ?,
+                        ?,
+                        ?,
+                        ?,
+                        ?,
+                        ?,
+                        ?,
+                        ?,
+                        ?,
+                        ?,
+                        ?
+                    )
+                    """,
+                    (
+                        booking_id,
+                        user_id,
+                        doctor_name,
+                        booking_date_value,
+                        booking_time,
+                        status,
+                        patient_name,
+                        patient_email,
+                        phone,
+                        specialty,
+                        hospital_name,
+                        symptoms,
+                        payment_method,
+                        created_at
+                    )
+                )
+
+                sqlite_conn.commit()
+
+            finally:
+
+                sqlite_conn.close()
 
         except Exception as e:
 
-            sqlite_conn.rollback()
-
-            st.warning(
-                "Booking was saved successfully, "
-                "but local SQLite sync failed. "
-                "The automatic Neon → SQLite sync will recover it."
-            )
-
             print(
-                "SQLite booking sync error:",
+                "SQLite booking sync skipped:",
                 e
             )
-
-        finally:
-
-            sqlite_conn.close()
 
         # =================================================
         # SUCCESS

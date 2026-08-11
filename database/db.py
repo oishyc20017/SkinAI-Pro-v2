@@ -17,9 +17,7 @@ BD_TIMEZONE = timezone(timedelta(hours=6))
 # =========================================================
 
 def get_bd_time():
-    return datetime.now(
-        BD_TIMEZONE
-    ).strftime(
+    return datetime.now(BD_TIMEZONE).strftime(
         "%Y-%m-%d %H:%M:%S"
     )
 
@@ -30,9 +28,8 @@ def get_bd_time():
 
 def get_database_backend():
     """
-    The application uses Neon PostgreSQL
-    as the single database for both
-    Local and Streamlit.
+    Neon PostgreSQL is the single live database
+    for both Local and Streamlit.
     """
 
     return "neon"
@@ -46,9 +43,7 @@ def get_connection():
 
     database_url = st.secrets.get(
         "NEON_DATABASE_URL",
-        os.environ.get(
-            "NEON_DATABASE_URL"
-        )
+        os.environ.get("NEON_DATABASE_URL")
     )
 
     if not database_url:
@@ -56,9 +51,4 @@ def get_connection():
             "NEON_DATABASE_URL is not configured."
         )
 
-    print("DATABASE BACKEND = neon")
-    print("USING NEON DATABASE")
-
-    return psycopg.connect(
-        database_url
-    )
+    return psycopg.connect(database_url)
