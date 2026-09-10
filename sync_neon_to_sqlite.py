@@ -1,3 +1,5 @@
+import os
+import time
 import sqlite3
 from pathlib import Path
 
@@ -6,12 +8,15 @@ import streamlit as st
 
 
 # =========================================================
-# PATH
+# CONFIGURATION
 # =========================================================
 
 BASE_DIR = Path(__file__).resolve().parent
 
 SQLITE_DB = BASE_DIR / "skinai.db"
+
+# Neon check interval
+SYNC_INTERVAL = 1
 
 
 # =========================================================
@@ -19,15 +24,29 @@ SQLITE_DB = BASE_DIR / "skinai.db"
 # =========================================================
 
 def get_neon_connection():
+    """
+    Connect to Neon PostgreSQL.
 
-    neon_url = st.secrets.get("NEON_DATABASE_URL")
+    First tries Windows environment variable.
+    If not available, uses Streamlit secrets.
 
-    if not neon_url:
+    The database URL is never printed.
+    """
+
+    database_url = os.environ.get("NEON_DATABASE_URL")
+
+    if not database_url:
+        database_url = st.secrets.get("NEON_DATABASE_URL")
+
+    if not database_url:
         raise RuntimeError(
             "NEON_DATABASE_URL is not configured."
         )
 
-    return psycopg.connect(neon_url)
+    return psycopg.connect(
+        database_url,
+        connect_timeout=10
+    )
 
 
 # =========================================================
@@ -41,7 +60,10 @@ def get_sqlite_connection():
             f"SQLite database not found: {SQLITE_DB}"
         )
 
-    conn = sqlite3.connect(str(SQLITE_DB))
+    conn = sqlite3.connect(
+        str(SQLITE_DB),
+        timeout=30
+    )
 
     conn.execute(
         "PRAGMA foreign_keys = ON"
@@ -51,41 +73,27 @@ def get_sqlite_connection():
 
 
 # =========================================================
-# SYNC TABLE
+# GENERIC TABLE UPSERT
 # =========================================================
 
-def sync_table(
+def upsert_table(
     neon_conn,
     sqlite_conn,
     table_name,
     columns
 ):
+    """
+    Copy all rows from Neon into SQLite.
+
+    Existing rows are updated.
+    New rows are inserted.
+    """
 
     column_list = ", ".join(columns)
 
     placeholders = ", ".join(
         ["?" for _ in columns]
     )
-
-    # -----------------------------------------------------
-    # GET DATA FROM NEON
-    # -----------------------------------------------------
-
-    with neon_conn.cursor() as cursor:
-
-        cursor.execute(
-            f"""
-            SELECT {column_list}
-            FROM {table_name}
-            ORDER BY id
-            """
-        )
-
-        rows = cursor.fetchall()
-
-    # -----------------------------------------------------
-    # INSERT / UPDATE SQLITE
-    # -----------------------------------------------------
 
     update_columns = [
         column
@@ -99,16 +107,28 @@ def sync_table(
     )
 
     sql = f"""
-        INSERT INTO {table_name}(
+        INSERT INTO {table_name} (
             {column_list}
         )
-        VALUES(
+        VALUES (
             {placeholders}
         )
         ON CONFLICT(id)
         DO UPDATE SET
             {update_clause}
     """
+
+    with neon_conn.cursor() as cursor:
+
+        cursor.execute(
+            f"""
+            SELECT {column_list}
+            FROM {table_name}
+            ORDER BY id
+            """
+        )
+
+        rows = cursor.fetchall()
 
     for row in rows:
 
@@ -117,47 +137,102 @@ def sync_table(
             row
         )
 
-    print(
-        f"{table_name}: {len(rows)} rows synced"
-    )
+    return len(rows)
 
 
 # =========================================================
-# MAIN SYNC
+# FIX SQLITE AUTOINCREMENT SEQUENCES
 # =========================================================
 
-def sync_neon_to_sqlite():
+def fix_sqlite_sequences(sqlite_conn):
 
-    print("=" * 60)
-    print("NEON → SQLITE SYNC STARTED")
-    print("=" * 60)
+    tables = [
+        "users",
+        "conversations",
+        "messages",
+        "prediction_history",
+        "bookings"
+    ]
+
+    for table in tables:
+
+        try:
+
+            max_id = sqlite_conn.execute(
+                f"""
+                SELECT COALESCE(MAX(id), 0)
+                FROM {table}
+                """
+            ).fetchone()[0]
+
+            sqlite_conn.execute(
+                """
+                DELETE FROM sqlite_sequence
+                WHERE name = ?
+                """,
+                (table,)
+            )
+
+            sqlite_conn.execute(
+                """
+                INSERT INTO sqlite_sequence(
+                    name,
+                    seq
+                )
+                VALUES(
+                    ?,
+                    ?
+                )
+                """,
+                (
+                    table,
+                    max_id
+                )
+            )
+
+        except sqlite3.OperationalError:
+            pass
+
+
+# =========================================================
+# ONE COMPLETE SYNC
+# =========================================================
+
+def sync_once():
 
     neon_conn = None
     sqlite_conn = None
 
     try:
 
-        # -------------------------------------------------
-        # CONNECTIONS
-        # -------------------------------------------------
+        print()
+        print("----------------------------------------")
+        print("NEON -> LOCAL SQLITE SYNC")
+        print("Checking for updates...")
 
-        print("Connecting to Neon...")
+        # -------------------------------------------------
+        # CONNECT TO NEON
+        # -------------------------------------------------
 
         neon_conn = get_neon_connection()
 
         print("Neon connected successfully.")
 
+        # -------------------------------------------------
+        # CONNECT TO SQLITE
+        # -------------------------------------------------
+
         sqlite_conn = get_sqlite_connection()
 
         print(
-            f"Using SQLite: {SQLITE_DB}"
+            f"SQLite database: {SQLITE_DB}"
         )
 
         # -------------------------------------------------
         # USERS
         # -------------------------------------------------
 
-        sync_table(
+        users = upsert_table(
             neon_conn,
             sqlite_conn,
             "users",
@@ -174,7 +249,7 @@ def sync_neon_to_sqlite():
         # CONVERSATIONS
         # -------------------------------------------------
 
-        sync_table(
+        conversations = upsert_table(
             neon_conn,
             sqlite_conn,
             "conversations",
@@ -190,7 +265,7 @@ def sync_neon_to_sqlite():
         # MESSAGES
         # -------------------------------------------------
 
-        sync_table(
+        messages = upsert_table(
             neon_conn,
             sqlite_conn,
             "messages",
@@ -205,10 +280,10 @@ def sync_neon_to_sqlite():
         )
 
         # -------------------------------------------------
-        # PREDICTIONS
+        # PREDICTION HISTORY
         # -------------------------------------------------
 
-        sync_table(
+        predictions = upsert_table(
             neon_conn,
             sqlite_conn,
             "prediction_history",
@@ -226,7 +301,7 @@ def sync_neon_to_sqlite():
         # BOOKINGS
         # -------------------------------------------------
 
-        sync_table(
+        bookings = upsert_table(
             neon_conn,
             sqlite_conn,
             "bookings",
@@ -249,42 +324,50 @@ def sync_neon_to_sqlite():
         )
 
         # -------------------------------------------------
+        # FIX SQLITE AUTOINCREMENT
+        # -------------------------------------------------
+
+        fix_sqlite_sequences(
+            sqlite_conn
+        )
+
+        # -------------------------------------------------
         # COMMIT
         # -------------------------------------------------
 
         sqlite_conn.commit()
 
-        print()
-        print("=" * 60)
-        print("SYNC COMPLETED SUCCESSFULLY")
-        print("=" * 60)
-
         # -------------------------------------------------
-        # COUNTS
+        # SHOW COUNTS
         # -------------------------------------------------
 
-        tables = [
-            "users",
-            "conversations",
-            "messages",
-            "prediction_history",
-            "bookings"
-        ]
+        print(
+            f"Users          : {users}"
+        )
 
-        print()
-        print("SQLite counts:")
+        print(
+            f"Conversations  : {conversations}"
+        )
 
-        for table in tables:
+        print(
+            f"Messages       : {messages}"
+        )
 
-            count = sqlite_conn.execute(
-                f"SELECT COUNT(*) FROM {table}"
-            ).fetchone()[0]
+        print(
+            f"Predictions    : {predictions}"
+        )
 
-            print(
-                f"{table}: {count}"
-            )
+        print(
+            f"Bookings       : {bookings}"
+        )
 
-    except Exception:
+        print(
+            "SQLite updated successfully."
+        )
+
+        print("----------------------------------------")
+
+    except Exception as e:
 
         if sqlite_conn is not None:
 
@@ -293,7 +376,15 @@ def sync_neon_to_sqlite():
             except Exception:
                 pass
 
-        raise
+        print()
+        print(
+            "SYNC ERROR:",
+            repr(e)
+        )
+
+        print(
+            "The sync process will retry automatically."
+        )
 
     finally:
 
@@ -305,9 +396,34 @@ def sync_neon_to_sqlite():
 
 
 # =========================================================
-# RUN
+# CONTINUOUS SYNC
 # =========================================================
 
 if __name__ == "__main__":
 
-    sync_neon_to_sqlite()
+    print()
+    print("==========================================")
+    print("NEON -> SQLITE CONTINUOUS SYNC")
+    print("==========================================")
+
+    print(
+        f"SQLite database: {SQLITE_DB}"
+    )
+
+    print(
+        f"Sync interval: {SYNC_INTERVAL} second"
+    )
+
+    print(
+        "Press CTRL+C to stop."
+    )
+
+    print("==========================================")
+
+    while True:
+
+        sync_once()
+
+        time.sleep(
+            SYNC_INTERVAL
+        )
