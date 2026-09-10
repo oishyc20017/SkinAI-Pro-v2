@@ -56,7 +56,7 @@ def get_ai_model():
 # AI CHAT
 # =========================================================
 
-def ask_ai(prompt):
+def ask_ai(prompt, prediction_context=None):
 
     if not prompt:
         return "Please enter a message."
@@ -82,12 +82,52 @@ Your job is to help users with:
 Important:
 - Give clear and easy-to-understand answers.
 - Do not claim to make a definite medical diagnosis.
-- For serious or concerning symptoms, recommend consulting a qualified doctor.
+- Any prediction from SkinAI Pro is a preliminary AI prediction,
+  not a confirmed medical diagnosis.
+- If the user asks about their prediction, explain it carefully
+  as an AI-generated preliminary result.
+- For serious or concerning symptoms, recommend consulting
+  a qualified doctor.
 - Keep answers helpful and concise.
 """
 
+        # -------------------------------------------------
+        # PREDICTION CONTEXT
+        # -------------------------------------------------
+
+        prediction_text = ""
+
+        if prediction_context:
+
+            disease = prediction_context.get("disease")
+            confidence = prediction_context.get("confidence")
+
+            if disease:
+
+                prediction_text = (
+                    "\n\n"
+                    "User's latest SkinAI prediction:\n"
+                    f"Disease: {disease}\n"
+                )
+
+                if confidence is not None:
+
+                    prediction_text += (
+                        f"Confidence: {confidence}%\n"
+                    )
+
+                prediction_text += (
+                    "This is a preliminary AI prediction "
+                    "and not a confirmed diagnosis.\n"
+                )
+
+        # -------------------------------------------------
+        # FINAL PROMPT
+        # -------------------------------------------------
+
         final_prompt = (
             system_instruction
+            + prediction_text
             + "\n\n"
             + "User message:\n"
             + str(prompt)

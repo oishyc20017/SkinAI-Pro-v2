@@ -383,7 +383,7 @@ def dashboard_page():
 
         if booking:
 
-            doctor_name, booking_date, booking_time = booking
+            doctor_name, booking_date, booking_time, status = booking
 
             booking_html = f"""
             <div class="dashboard-value">

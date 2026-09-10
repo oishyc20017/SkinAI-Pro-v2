@@ -8,6 +8,7 @@ from services.chat_service import (
     load_messages
 )
 from services.ai_service import ask_ai
+from services.dashboard_service import get_recent_prediction
 
 
 def chat_page():
@@ -136,7 +137,28 @@ def chat_page():
 
     with st.spinner("SkinAI is thinking..."):
 
-        ai_reply = ask_ai(prompt)
+        # Get user's latest prediction
+        recent_prediction = get_recent_prediction(
+            st.session_state.user_id
+        )
+
+        # Prepare prediction context
+        prediction_context = None
+
+        if recent_prediction:
+
+            disease, confidence = recent_prediction
+
+            prediction_context = {
+                "disease": disease,
+                "confidence": confidence
+            }
+
+        # Ask Gemini with prediction context
+        ai_reply = ask_ai(
+            prompt,
+            prediction_context
+        )
 
     # -----------------------------
     # Save AI Response
